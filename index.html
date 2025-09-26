@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html data-theme="dark" lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradeTracker • Secure Trading Journal</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.umd.min.js"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin href="https://fonts.gstatic.com" rel="preconnect" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style type="text/tailwindcss">
+    /* Theme tokens */
+    [data-theme="dark"] {
+      --primary-color: #3b82f6;
+      --primary-2: #8ab4ff;
+      --secondary-color: #1f2937;
+      --background-color: #0b1220;
+      --surface: #111827;
+      --text-primary: #e5e7eb;
+      --text-secondary: #9ca3af;
+      --accent-color: #243042;
+      --danger-color: #ef4444;
+      --success-color: #22c55e;
+      --chart-background: rgba(59, 130, 246, 0.18);
+      --glass: rgba(255, 255, 255, 0.06);
+      --ring: rgba(59, 130, 246, 0.35);
+      --glass-success: rgba(34, 197, 94, 0.1);
+      --glass-danger: rgba(239, 68, 68, 0.1);
+    }
+    [data-theme="light"] {
+      --primary-color: #2563eb;
+      --primary-2: #60a5fa;
+      --secondary-color: #ffffff;
+      --background-color: #f3f3fb;
+      --surface: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #4b5563;
+      --accent-color: #e5e7eb;
+      --danger-color: #dc2626;
+      --success-color: #16a34a;
+      --chart-background: rgba(37, 99, 235, 0.15);
+      --glass: rgba(255, 255, 255, 0.65);
+      --ring: rgba(37, 99, 235, 0.35);
+      --glass-success: rgba(22, 163, 74, 0.1);
+      --glass-danger: rgba(220, 38, 38, 0.1);
+    }
+
+    * { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    body { background: var(--background-color); color: var(--text-primary); }
+
+    /* Fancy header shadow on scroll */
+    .elevate { box-shadow: 0 8px 24px rgba(0,0,0,.18), inset 0 -1px 0 rgba(255,255,255,.02); }
+
+    /* Glass modals */
+    .modal { display:none; position:fixed; inset:0; z-index:1000; backdrop-filter: blur(8px); align-items:center; justify-content:center; }
+    .modal.open { display:flex; }
+
+    .card { background: var(--surface); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; }
+
+    /* Active nav gradient underline */
+    .nav-item { position:relative; }
+    .nav-item.active::after { content:""; position:absolute; left:10%; right:10%; bottom:-10px; height:3px; border-radius:999px; background: linear-gradient(90deg, var(--primary-2), var(--primary-color)); }
+
+    .btn-primary { background: linear-gradient(135deg, var(--primary-color), var(--primary-2)); color: white; }
+    .btn-primary:hover { filter: brightness(1.05); }
+
+    .btn-ghost { background: transparent; border: 1px solid var(--accent-color); }
+
+    .toast { position: fixed; bottom: 1rem; right: 1rem; padding: .75rem 1rem; border-radius: 12px; background: var(--surface); color: var(--text-primary); opacity:0; transform: translateY(12px); transition: .3s ease; z-index: 1002; border:1px solid rgba(255,255,255,.06) }
+    .toast.show { opacity:1; transform: translateY(0); }
+
+    /* Progress ring */
+    .ring svg { transform: rotate(-90deg); }
+
+    /* Rich Text toolbar */
+    .rt-btn { @apply text-xs px-2 py-1 rounded-md border; border-color: var(--accent-color); }
+    .rt-btn[aria-pressed="true"] { background: var(--accent-color); }
+
+    /* Win and Loss buttons */
+    .win-button { background-color: #28a745; color: white; }
+    .win-button:hover { background-color: #218838; }
+
+    .loss-button { background-color: #dc3545; color: white; }
+    .loss-button:hover { background-color: #c82333; }
+
+    /* Custom styles for current balance card */
+    .balance-card { transition: all 0.3s ease; }
+    .balance-card.gain { background-color: var(--glass-success); }
+    .balance-card.loss { background-color: var(--glass-danger); }
+
+    .animate-bounce-up {
+      animation: bounce-up 0.5s ease-out;
+    }
+    .animate-bounce-down {
+      animation: bounce-down 0.5s ease-out;
+    }
+
+    @keyframes bounce-up {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    @keyframes bounce-down {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(5px); }
+    }
+    
+    /* Protection notice */
+    .protection-notice {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 9999;
+      display: none;
+    }
+
+    /* Mobile nav area */
+    #mobileNav { background: transparent; position: absolute; left: 0; right: 0; top: 64px; z-index: 30; padding: 0.75rem; }
+
+    /* System selector styles */
+    .system-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .system-selector select {
+      background: var(--surface);
+      border: 1px solid var(--accent-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      min-width: 200px;
+      flex: 1;
+    }
+    .system-selector button {
+      background: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .system-selector button:hover {
+      filter: brightness(1.1);
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 640px) {
+      .system-selector {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .system-selector select {
+        min-width: unset;
+        width: 100%;
+      }
+      
+      #tradeControls {
+        flex-direction: column;
+      }
+      
+      #tradeControls button {
+        width: 100%;
+        justify-content: center;
+      }
+      
+      .grid-cols-1-sm {
+        grid-template-columns: 1fr;
+      }
+      
+      .modal > div {
+        width: 95vw !important;
+        margin: 10px;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-[var(--background-color)] text-[var(--text-primary)]">
+  <div class="min-h-screen flex flex-col relative">
+    <div class="protection-notice" id="protectionNotice">Right-click is disabled on this page.</div>
+    
+    <header id="topbar" class="sticky top-0 z-40 bg-[var(--background-color)]/95 backdrop-blur-md border-b border-[var(--accent-color)] transition-shadow">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="h-16 flex items-center justify-between relative">
+          <div class="flex items-center gap-3">
+            <svg class="h-8 w-8 text-[var(--primary-color)]" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path d="M44 4H30.6666V17.3334H17.3334V30.6666H4V44H44V4Z" fill="currentColor"/></svg>
+            <h1 class="text-xl font-semibold tracking-tight">TradeTracker</h1>
+          </div>
+
+          <!-- desktop nav -->
+          <nav class="hidden sm:flex items-center gap-4">
+            <button class="nav-item px-3 py-2 text-sm font-medium hover:text-[var(--primary-color)] active" onclick="showTab('trackerTab')">Dashboard</button>
+            <button class="nav-item px-3 py-2 text-sm font-medium hover:text-[var(--primary-color)]" onclick="showTab('tradeHistoryTab')">Trades</button>
+            <button class="nav-item px-3 py-2 text-sm font-medium hover:text-[var(--primary-color)]" onclick="showTab('tradeJournalTab')">Journal</button>
+            <button class="nav-item px-3 py-2 text-sm font-medium hover:text-[var(--primary-color)]" onclick="showTab('reportTab')">Report</button>
+          </nav>
+
+          <div class="flex items-center gap-2 md:gap-4">
+            <button id="themeToggle" class="btn-ghost px-3 py-2 rounded-lg text-sm flex items-center gap-2" aria-label="Toggle theme">
+              <span id="themeLabel">Dark Mode</span>
+              <svg id="themeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path id="sunIcon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                <path id="moonIcon" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path>
+              </svg>
+            </button>
+
+            <!-- mobile menu button -->
+            <button id="mobileMenuBtn" class="sm:hidden px-3 py-2 rounded-lg btn-ghost" aria-expanded="false" aria-controls="mobileNav" onclick="toggleMobileNav()" title="Menu">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- mobile nav (hidden by default) -->
+      <div id="mobileNav" class="sm:hidden hidden max-w-7xl mx-auto px-4">
+        <div class="bg-[var(--surface)] border border-[var(--accent-color)] rounded-lg p-3 flex flex-col gap-2">
+          <button class="nav-item text-left px-3 py-2 rounded-md active" onclick="showTab('trackerTab'); toggleMobileNav()">Dashboard</button>
+          <button class="nav-item text-left px-3 py-2 rounded-md" onclick="showTab('tradeHistoryTab'); toggleMobileNav()">Trades</button>
+          <button class="nav-item text-left px-3 py-2 rounded-md" onclick="showTab('tradeJournalTab'); toggleMobileNav()">Journal</button>
+          <button class="nav-item text-left px-3 py-2 rounded-md" onclick="showTab('reportTab'); toggleMobileNav()">Report</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- TRACKER / DASHBOARD (VISIBLE BY DEFAULT) -->
+        <section id="trackerTab" class="tab-content block">
+          <!-- System Selector -->
+          <div class="system-selector">
+            <label for="systemSelect" class="whitespace-nowrap">Trading System:</label>
+            <select id="systemSelect" onchange="switchSystem(this.value)">
+              <option value="default">Default System</option>
+            </select>
+            <button onclick="showSystemModal()">+ Add New System</button>
+          </div>
+
+          <div class="grid gap-6 lg:grid-cols-3 mb-8">
+            <div class="lg:col-span-2 card p-6 sm:p-8">
+              <h2 class="text-2xl sm:text-3xl font-bold mb-2">Trading Progress Tracker</h2>
+              <p class="text-sm text-[var(--text-secondary)] mb-6">Set your plan, then mark wins and losses. The dashboard updates expectancy, profit factor, and progress to target.</p>
+              <form class="space-y-6 lg:flex lg:items-end lg:justify-between lg:gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                  <div>
+                    <label for="startingBalance" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Starting Balance ($)</label>
+                    <input id="startingBalance" type="number" value="10000" min="1" required class="w-full bg-[var(--surface)] border border-[var(--accent-color)] text-[var(--text-primary)] px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-all" />
+                    <p id="startingBalanceError" class="text-xs text-[var(--danger-color)] mt-1 hidden">Please enter a valid starting balance</p>
+                  </div>
+                  <div>
+                    <label for="targetBalance" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Target Balance ($)</label>
+                    <input id="targetBalance" type="number" value="10800" min="1" required class="w-full bg-[var(--surface)] border border-[var(--accent-color)] text-[var(--text-primary)] px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-all" />
+                    <p id="targetBalanceError" class="text-xs text-[var(--danger-color)] mt-1 hidden">Please enter a valid target balance</p>
+                  </div>
+                  <div>
+                    <label for="riskPercent" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Risk (%)</label>
+                    <input id="riskPercent" type="number" value="1" min="1" max="100" required class="w-full bg-[var(--surface)] border border-[var(--accent-color)] text-[var(--text-primary)] px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-all" />
+                    <p id="riskPercentError" class="text-xs text-[var(--danger-color)] mt-1 hidden">Risk must be between 1% and 100%</p>
+                  </div>
+                  <div>
+                    <label for="rewardPercent" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">Reward (%)</label>
+                    <input id="rewardPercent" type="number" value="2" min="1" max="100" required class="w-full bg-[var(--surface)] border border-[var(--accent-color)] text-[var(--text-primary)] px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-all" />
+                    <p id="rewardPercentError" class="text-xs text-[var(--danger-color)] mt-1 hidden">Reward must be between 1% and 100%</p>
+                  </div>
+                </div>
+                <button id="initButton" type="button" onclick="initTrading()" class="btn-primary px-6 py-2.5 rounded-lg font-semibold w-full lg:w-auto">Initialize</button>
+              </form>
+            </div>
+
+            <div class="card p-6 flex items-center gap-5 balance-card hover:scale-[1.01] transition-transform">
+              <div class="ring relative w-28 h-28 shrink-0">
+                <svg width="112" height="112">
+                  <circle cx="56" cy="56" r="48" stroke="var(--accent-color)" stroke-width="10" fill="none" />
+                  <circle id="progressRing" cx="56" cy="56" r="48" stroke="url(#grad)" stroke-linecap="round" stroke-width="10" fill="none" stroke-dasharray="301.59" stroke-dashoffset="301.59" />
+                  <defs>
+                    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stop-color="var(--primary-2)"/>
+                      <stop offset="100%" stop-color="var(--primary-color)"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div class="absolute inset-0 grid place-items-center">
+                  <div class="text-center">
+                    <div id="progressRingLabel" class="text-xl font-bold">0%</div>
+                    <div class="text-xs text-[var(--text-secondary)]">to target</div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex-1 space-y-2">
+                <div class="flex items-center gap-2">
+                  <div class="text-sm text-[var(--text-secondary)]">Current Balance</div>
+                  <div id="balance-arrow"></div>
+                </div>
+                <div id="currentBalance" class="text-2xl font-bold">$10,299.00</div>
+                <div class="text-sm text-[var(--text-secondary)]">Target Balance</div>
+                <div id="targetResult" class="font-medium">$10,800.00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TRADE RECORDING BUTTONS -->
+          <div id="tradeControls" class="flex items-center justify-end flex-wrap gap-3 mb-6" style="display:none;">
+            <button type="button" onclick="recordTrade('win')" class="win-button flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold">
+              <svg fill="currentColor" height="16" viewBox="0 0 256 256" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"></path></svg>
+              Record Win (TP)
+            </button>
+            <button type="button" onclick="recordTrade('loss')" class="loss-button flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold">
+              <svg fill="currentColor" height="16" viewBox="0 0 256 256" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+              Record Loss (SL)
+            </button>
+            <button type="button" onclick="showResetConfirmation()" class="btn-ghost px-4 py-2.5 rounded-lg font-semibold">Reset</button>
+            <div class="grow"></div>
+            <button type="button" onclick="exportData()" class="btn-primary px-5 py-2.5 rounded-lg font-semibold">Export</button>
+            <button type="button" onclick="importData()" class="btn-ghost px-5 py-2.5 rounded-lg font-semibold">Import</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="card p-5 hover:scale-[1.01] transition">
+              <div class="text-sm text-[var(--text-secondary)]">Win Rate</div>
+              <div id="winRate" class="text-2xl font-bold text-[var(--primary-color)]">0%</div>
+            </div>
+            <div class="card p-5 hover:scale-[1.01] transition">
+              <div class="text-sm text-[var(--text-secondary)]">Expectancy</div>
+              <div id="expectancy" class="text-2xl font-bold text-[var(--primary-color)]">$0.00</div>
+            </div>
+            <div class="card p-5 hover:scale-[1.01] transition">
+              <div class="text-sm text-[var(--text-secondary)]">Profit Factor</div>
+              <div id="profitFactor" class="text-2xl font-bold text-[var(--primary-color)]">0.00</div>
+            </div>
+            <div class="card p-5 hover:scale-[1.01] transition">
+              <div class="text-sm text-[var(--text-secondary)]">Estimated Trades to Target</div>
+              <div id="estimatedTrades" class="text-2xl font-bold">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TRADES (HIDDEN FIRST) -->
+        <section id="tradeHistoryTab" class="tab-content hidden">
+          <h3 class="text-xl font-semibold mb-4">Trading History</h3>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Total Trades</div><div id="sumTotal" class="text-xl font-semibold">0</div></div>
+            <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Wins</div><div id="sumWins" class="text-xl font-semibold text-[var(--success-color)]">0</div></div>
+            <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Losses</div><div id="sumLosses" class="text-xl font-semibold text-[var(--danger-color)]">0</div></div>
+            <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Net P/L</div><div id="sumPnL" class="text-xl font-semibold">$0.00</div></div>
+          </div>
+
+          <div class="card p-4 mb-4 flex flex-col sm:flex-row gap-3 items-center">
+            <select id="filterType" class="bg-[var(--surface)] border border-[var(--accent-color)] rounded-lg px-3 py-2">
+              <option value="all">All</option>
+              <option value="win">Wins</option>
+              <option value="loss">Losses</option>
+            </select>
+            <input id="filterFrom" type="date" class="bg-[var(--surface)] border border-[var(--accent-color)] rounded-lg px-3 py-2" />
+            <input id="filterTo" type="date" class="bg-[var(--surface)] border border-[var(--accent-color)] rounded-lg px-3 py-2" />
+            <button class="btn-ghost px-4 py-2 rounded-lg" onclick="applyFilters()">Apply</button>
+            <button class="btn-ghost px-4 py-2 rounded-lg" onclick="clearFilters()">Clear</button>
+          </div>
+
+          <div class="card p-4 sm:p-6 mb-6">
+            <canvas id="balanceChart" aria-label="Balance Chart"></canvas>
+          </div>
+
+          <div id="tradeHistory" class="card p-0 max-h-[420px] overflow-y-auto"></div>
+        </section>
+
+        <!-- JOURNAL -->
+        <section id="tradeJournalTab" class="tab-content hidden">
+          <h3 class="text-xl font-semibold mb-4">Trade Journal</h3>
+          <div class="card p-4 sm:p-6">
+            <div class="overflow-x-auto">
+              <table id="progressTable" class="w-full min-w-max">
+                <thead>
+                  <tr class="bg-[var(--accent-color)]">
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Trade #</th>
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Type</th>
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Balance Before</th>
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Risk/Reward</th>
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Balance After</th>
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Screenshot</th>
+                    <th class="p-4 text-left text-sm font-semibold text-[var(--primary-color)]">Trade Notes</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- REPORT -->
+        <section id="reportTab" class="tab-content hidden">
+          <h3 class="text-xl font-semibold mb-4">Generate Report</h3>
+          <div class="card p-6 sm:p-8 text-center space-y-6">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <label for="reportCalendar" class="text-sm font-medium text-[var(--text-secondary)]">Select Month:</label>
+              <input type="month" id="reportCalendar" class="bg-[var(--surface)] border border-[var(--accent-color)] text-[var(--text-primary)] px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-all" />
+              <button type="button" onclick="generateReport()" class="btn-primary px-5 py-2.5 rounded-lg font-semibold">Generate</button>
+            </div>
+            <div id="reportResult" class="text-[var(--text-primary)]"></div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="card p-4"><canvas id="reportPie"></canvas></div>
+              <div class="card p-4"><canvas id="reportBar"></canvas></div>
+            </div>
+
+            <div class="flex justify-center gap-4 flex-wrap">
+              <button type="button" onclick="downloadPDF()" class="btn-primary px-6 py-2.5 rounded-lg font-semibold">Download PDF (.tex)</button>
+              <button type="button" onclick="downloadXLSX()" class="btn-ghost px-6 py-2.5 rounded-lg font-semibold">Download XLSX</button>
+            </div>
+          </div>
+        </section>
+
+        <p class="text-center text-sm text-[var(--text-secondary)] mt-8">Note: Calculations are based on your specified risk and reward percentages. Actual results may vary.</p>
+      
+        <!-- Adsterra Native Banner Ad in Footer -->
+        <div class="card p-4 mt-8 mb-4" style="max-width: 800px; margin: 0 auto;">
+          <div class="text-center mb-3">
+            <span class="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">Sponsored Content</span>
+          </div>
+          <div class="ad-container" style="text-align: center;">
+            <script async="async" data-cfasync="false" src="//pl27614122.revenuecpmgate.com/65e774d4390ba22144d3fd7a68193496/invoke.js"></script>
+            <div id="container-65e774d4390ba22144d3fd7a68193496"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- MODALS -->
+    <div id="resetModal" class="modal">
+      <div class="card p-6 sm:p-8 w-[min(560px,92vw)] shadow-xl border border-white/10" style="background: var(--glass);">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-xl font-semibold">Confirm Reset</h2>
+          <button class="text-2xl leading-none hover:text-[var(--primary-color)]" onclick="closeModal('resetModal')">&times;</button>
+        </div>
+        <p class="text-[var(--text-secondary)] mb-6">Are you sure you want to reset all trading data? This action cannot be undone.</p>
+        <div class="flex justify-center gap-4">
+          <button type="button" onclick="resetTrading()" class="px-5 py-2.5 rounded-lg font-semibold bg-[var(--danger-color)]/90 text-white">Yes, Reset</button>
+          <button type="button" onclick="closeModal('resetModal')" class="btn-ghost px-5 py-2.5 rounded-lg font-semibold">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="importModal" class="modal">
+      <div class="card p-6 sm:p-8 w-[min(680px,94vw)] shadow-xl" style="background: var(--glass);">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-xl font-semibold">Import Trading Data</h2>
+          <button class="text-2xl leading-none hover:text-[var(--primary-color)]" onclick="closeModal('importModal')">&times;</button>
+        </div>
+        <p class="text-[var(--text-secondary)] mb-4">Choose your exported JSON file or paste data below:</p>
+
+        <input type="file" id="importFile" accept="application/json" class="mb-4 w-full bg-[var(--surface)] border border-[var(--accent-color)] rounded-lg px-3 py-2 text-sm">
+
+        <textarea id="importDataText" rows="8" class="w-full bg-[var(--surface)] text-[var(--text-primary)] p-4 rounded-lg border border-[var(--accent-color)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"></textarea>
+        <div class="flex justify-center gap-4 mt-6">
+          <button type="button" onclick="processImport()" class="btn-primary px-6 py-2.5 rounded-lg font-semibold">Import Data</button>
+          <button type="button" onclick="closeModal('importModal')" class="btn-ghost px-6 py-2.5 rounded-lg font-semibold">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="screenshotModal" class="modal">
+      <div class="card p-5 sm:p-6 w-[min(900px,95vw)]" style="background: var(--glass);">
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="text-lg font-semibold">Screenshot Preview</h3>
+          <button class="text-2xl leading-none hover:text-[var(--primary-color)]" onclick="closeModal('screenshotModal')">&times;</button>
+        </div>
+        <img id="modalScreenshot" src="" alt="Screenshot preview" class="w-full max-h-[70vh] object-contain rounded-md border border-[var(--accent-color)] mb-4" />
+        <div class="text-left max-w-2xl mx-auto mt-2">
+          <h4 class="text-sm font-medium text-[var(--text-secondary)]">Trade Note:</h4>
+          <p id="modalTradeNote" class="text-[var(--text-primary)]">No trade note available</p>
+        </div>
+        <div class="text-right mt-4"><button class="btn-ghost px-5 py-2.5 rounded-lg" onclick="closeModal('screenshotModal')">Close</button></div>
+      </div>
+    </div>
+
+    <!-- System Management Modal -->
+    <div id="systemModal" class="modal">
+      <div class="card p-6 sm:p-8 w-[min(560px,92vw)] shadow-xl border border-white/10" style="background: var(--glass);">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-xl font-semibold">Manage Trading Systems</h2>
+          <button class="text-2xl leading-none hover:text-[var(--primary-color)]" onclick="closeModal('systemModal')">&times;</button>
+        </div>
+        <p class="text-[var(--text-secondary)] mb-4">Add a new trading system or manage existing ones:</p>
+        
+        <div class="mb-4">
+          <label for="systemName" class="block text-sm font-medium text-[var(--text-secondary)] mb-1">System Name</label>
+          <input id="systemName" type="text" placeholder="Enter system name" class="w-full bg-[var(--surface)] border border-[var(--accent-color)] text-[var(--text-primary)] px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--ring)] transition-all" />
+        </div>
+        
+        <div class="flex justify-center gap-4 mt-6">
+          <button type="button" onclick="addSystem()" class="btn-primary px-6 py-2.5 rounded-lg font-semibold">Add System</button>
+          <button type="button" onclick="closeModal('systemModal')" class="btn-ghost px-6 py-2.5 rounded-lg font-semibold">Cancel</button>
+        </div>
+        
+        <div class="mt-6">
+          <h3 class="text-lg font-semibold mb-3">Existing Systems</h3>
+          <div id="systemList" class="space-y-2">
+            <!-- Systems will be listed here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" role="alert" aria-live="assertive"></div>
+  </div>
+
+  <script>
+    // ====== State ======
+    let currentBalance = 10299;
+    let startingBalance = 10000;
+    let wins = 0;
+    let losses = 0;
+    let tradeCount = 0;
+    let tradeHistory = [];
+    let targetBalance = 10800;
+    let riskPercent = 1;
+    let rewardPercent = 2;
+    let currentSystem = 'default';
+    let tradingSystems = {
+      'default': {
+        name: 'Default System',
+        startingBalance: 10000,
+        currentBalance: 10299,
+        targetBalance: 10800,
+        riskPercent: 1,
+        rewardPercent: 2,
+        wins: 0,
+        losses: 0,
+        tradeCount: 0,
+        tradeHistory: []
+      }
+    };
+
+    let balanceChart = null;
+    let reportPie = null;
+    let reportBar = null;
+
+    // ====== Protection Measures ======
+    // Disable right-click menu
+    document.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      showProtectionNotice('Right-click is disabled on this page.');
+    });
+    
+    // Disable text selection on key elements
+    ['contextmenu', 'selectstart', 'dragstart'].forEach(function(event) {
+      document.addEventListener(event, function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+        e.preventDefault();
+      });
+    });
+    
+    // Disable F12, Ctrl+Shift+I, Ctrl+U, etc.
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'F12' || 
+          (e.ctrlKey && e.shiftKey && e.key === 'I') || 
+          (e.ctrlKey && e.shiftKey && e.key === 'C') ||
+          (e.ctrlKey && e.key === 'U')) {
+        e.preventDefault();
+        showProtectionNotice('Developer tools are disabled on this page.');
+      }
+    });
+    
+    // Show protection notice
+    function showProtectionNotice(message) {
+      const notice = document.getElementById('protectionNotice');
+      notice.textContent = message;
+      notice.style.display = 'block';
+      setTimeout(() => {
+        notice.style.display = 'none';
+      }, 2000);
+    }
+    
+    // Obfuscate function names in console
+    const consoleProtection = function() {
+      const originalFunctions = {};
+      ['log', 'warn', 'error', 'info'].forEach(method => {
+        originalFunctions[method] = console[method];
+        console[method] = function() {
+          originalFunctions[method].apply(console, ['🔒 Protected content: Debugging disabled']);
+        };
+      });
+    };
+    
+    // Execute console protection
+    consoleProtection();
+
+    // ====== Utilities ======
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast show ${type === 'error' ? 'bg-[var(--danger-color)] text-white' : ''}`;
+      setTimeout(() => { toast.className = 'toast'; }, 3000);
+    }
+
+    function animateNumber(el, to, prefix = '$', fraction = 2) {
+      const from = parseFloat(el.dataset.val || '0');
+      const start = performance.now();
+      const dur = 650;
+      function step(t) {
+        const p = Math.min(1, (t - start) / dur);
+        const v = from + (to - from) * (1 - Math.pow(1 - p, 3));
+        el.textContent = (prefix ? prefix : '') + v.toLocaleString('en-US', { minimumFractionDigits: fraction, maximumFractionDigits: fraction });
+        if (p < 1) requestAnimationFrame(step); else el.dataset.val = to;
+      }
+      requestAnimationFrame(step);
+    }
+
+    function setProgressRing(percent) {
+      const circle = document.getElementById('progressRing');
+      const label = document.getElementById('progressRingLabel');
+      const circumference = 2 * Math.PI * 48; // r=48
+      const clamped = Math.max(0, Math.min(100, percent));
+      const offset = circumference * (1 - clamped / 100);
+      circle.style.strokeDasharray = `${circumference}`;
+      circle.style.strokeDashoffset = `${offset}`;
+      label.textContent = `${clamped.toFixed(0)}%`;
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    function updateHeaderShadow() {
+      const topbar = document.getElementById('topbar');
+      if (window.scrollY > 4) topbar.classList.add('elevate'); else topbar.classList.remove('elevate');
+    }
+
+    // ====== Mobile nav toggle ======
+    function toggleMobileNav() {
+      const nav = document.getElementById('mobileNav');
+      const btn = document.getElementById('mobileMenuBtn');
+      if (!nav) return;
+      const isHidden = nav.classList.contains('hidden');
+      if (isHidden) {
+        nav.classList.remove('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+      } else {
+        nav.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    // ====== Theme ======
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      document.getElementById('themeLabel').textContent = next === 'dark' ? 'Dark Mode' : 'Light Mode';
+      const sunIcon = document.getElementById('sunIcon');
+      const moonIcon = document.getElementById('moonIcon');
+      if (next === 'light') { sunIcon.classList.add('hidden'); moonIcon.classList.remove('hidden'); }
+      else { sunIcon.classList.remove('hidden'); moonIcon.classList.add('hidden'); }
+      updateBalanceChart();
+      showToast(`Switched to ${next} theme`);
+    }
+
+    function loadFromStorage() {
+      const saved = localStorage.getItem('tradingData');
+      if (!saved) return false;
+      try {
+        const d = JSON.parse(saved);
+        currentBalance = d.currentBalance ?? currentBalance;
+        startingBalance = d.startingBalance ?? startingBalance;
+        wins = d.wins ?? wins;
+        losses = d.losses ?? losses;
+        tradeCount = d.tradeCount ?? tradeCount;
+        tradeHistory = d.tradeHistory ?? [];
+        targetBalance = d.targetBalance ?? targetBalance;
+        riskPercent = d.riskPercent ?? riskPercent;
+        rewardPercent = d.rewardPercent ?? rewardPercent;
+        
+        // Load trading systems if available
+        if (d.tradingSystems) {
+          tradingSystems = d.tradingSystems;
+          currentSystem = d.currentSystem || 'default';
+          
+          // Update system dropdown
+          updateSystemDropdown();
+        }
+        
+        // hydrate inputs
+        document.getElementById('startingBalance').value = startingBalance;
+        document.getElementById('targetBalance').value = targetBalance;
+        document.getElementById('riskPercent').value = riskPercent;
+        document.getElementById('rewardPercent').value = rewardPercent;
+        return true;
+      } catch (e) { console.error(e); showToast('Error loading saved data', 'error'); return false; }
+    }
+
+    function saveToStorage() {
+      const data = { 
+        currentBalance, 
+        startingBalance, 
+        wins, 
+        losses, 
+        tradeCount, 
+        tradeHistory, 
+        targetBalance, 
+        riskPercent, 
+        rewardPercent,
+        tradingSystems,
+        currentSystem
+      };
+      localStorage.setItem('tradingData', JSON.stringify(data));
+    }
+
+    // ====== Validation & Init ======
+    function validateInputs() {
+      let ok = true;
+      const s = parseFloat(document.getElementById('startingBalance').value);
+      const t = parseFloat(document.getElementById('targetBalance').value);
+      const r = parseFloat(document.getElementById('riskPercent').value);
+      const rr = parseFloat(document.getElementById('rewardPercent').value);
+      function err(id, show) { document.getElementById(id).classList.toggle('hidden', !show); }
+      if (isNaN(s) || s <= 0) { err('startingBalanceError', true); ok = false; } else err('startingBalanceError', false);
+      if (isNaN(t) || t <= 0 || t <= s) { err('targetBalanceError', true); ok = false; } else err('targetBalanceError', false);
+      if (isNaN(r) || r <= 0 || r > 100) { err('riskPercentError', true); ok = false; } else err('riskPercentError', false);
+      if (isNaN(rr) || rr <= 0 || rr > 100) { err('rewardPercentError', true); ok = false; } else err('rewardPercentError', false);
+      if (!ok) showToast('Please correct the input errors', 'error');
+      return ok;
+    }
+
+    function initTrading() {
+      if (!validateInputs()) return;
+      startingBalance = parseFloat(document.getElementById('startingBalance').value);
+      currentBalance = startingBalance;
+      targetBalance = parseFloat(document.getElementById('targetBalance').value);
+      riskPercent = parseFloat(document.getElementById('riskPercent').value);
+      rewardPercent = parseFloat(document.getElementById('rewardPercent').value);
+      if (tradeHistory.length === 0) { wins = 0; losses = 0; tradeCount = 0; }
+      
+      // Update current system data
+      tradingSystems[currentSystem] = {
+        ...tradingSystems[currentSystem],
+        startingBalance,
+        currentBalance,
+        targetBalance,
+        riskPercent,
+        rewardPercent,
+        wins,
+        losses,
+        tradeCount,
+        tradeHistory
+      };
+      
+      document.getElementById('tradeControls').style.display = 'flex';
+      updateDisplay();
+      updateTradeHistory();
+      updateProgressTable();
+      saveToStorage();
+      showToast('Trading initialized');
+    }
+
+    // ====== Stats & UI ======
+    function updateDisplay() {
+      const currentBalanceEl = document.getElementById('currentBalance');
+      const balanceCard = document.querySelector('.balance-card');
+      const balanceArrow = document.getElementById('balance-arrow');
+      animateNumber(currentBalanceEl, currentBalance, '$', 2);
+
+      const pnl = currentBalance - startingBalance;
+      if (pnl > 0) {
+        balanceCard.classList.remove('loss');
+        balanceCard.classList.add('gain');
+        balanceArrow.innerHTML = '<svg class="w-4 h-4 text-[var(--success-color)] animate-bounce-up" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>';
+      } else if (pnl < 0) {
+        balanceCard.classList.remove('gain');
+        balanceCard.classList.add('loss');
+        balanceArrow.innerHTML = '<svg class="w-4 h-4 text-[var(--danger-color)] animate-bounce-down" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>';
+      } else {
+        balanceCard.classList.remove('gain', 'loss');
+        balanceArrow.innerHTML = '';
+      }
+
+      currentBalanceEl.className = 'text-2xl font-bold ' + (pnl > 0 ? 'text-[var(--success-color)]' : pnl < 0 ? 'text-[var(--danger-color)]' : 'text-[var(--text-primary)]');
+
+      document.getElementById('targetResult').textContent = targetBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const progressPercent = ((currentBalance - startingBalance) / (targetBalance - startingBalance) * 100);
+      setProgressRing(progressPercent);
+      document.getElementById('winsCount')?.textContent && (document.getElementById('winsCount').textContent = wins);
+      document.getElementById('lossesCount')?.textContent && (document.getElementById('lossesCount').textContent = losses);
+      updateStatistics();
+      // ETA trades
+      const etaEl = document.getElementById('estimatedTrades');
+      if (currentBalance >= targetBalance) {
+        etaEl.textContent = '0 (Target Reached!)';
+      } else {
+        const growth = 1 + (rewardPercent / 100);
+        const tradesNeeded = Math.ceil(Math.log(targetBalance / currentBalance) / Math.log(growth));
+        etaEl.textContent = tradesNeeded;
+      }
+    }
+
+    function updateStatistics() {
+      const total = wins + losses;
+      const winRate = total > 0 ? (wins / total * 100).toFixed(2) : 0;
+      document.getElementById('winRate').textContent = `${winRate}%`;
+      let expectancy = 0;
+      if (total > 0) {
+        const avgWin = wins > 0 ? tradeHistory.filter(t => t.type === 'win').reduce((s, t) => s + t.amount, 0) / wins : 0;
+        const avgLoss = losses > 0 ? tradeHistory.filter(t => t.type === 'loss').reduce((s, t) => s + t.amount, 0) / losses : 0;
+        expectancy = (winRate / 100 * avgWin) - ((100 - winRate) / 100 * avgLoss);
+      }
+      document.getElementById('expectancy').textContent = `$${Number(expectancy).toFixed(2)}`;
+      let profitFactor = 0;
+      if (losses > 0) {
+        const grossProfit = tradeHistory.filter(t => t.type === 'win').reduce((s, t) => s + t.amount, 0);
+        const grossLoss = tradeHistory.filter(t => t.type === 'loss').reduce((s, t) => s + t.amount, 0);
+        profitFactor = grossProfit / grossLoss;
+      }
+      document.getElementById('profitFactor').textContent = isFinite(profitFactor) ? profitFactor.toFixed(2) : 'N/A';
+    }
+
+    // ====== Trades (recording) ======
+    function recordTrade(type) {
+      const balanceBefore = currentBalance;
+      let amount = 0;
+      if (type === 'win') {
+        amount = currentBalance * (rewardPercent / 100);
+        currentBalance += amount; wins++;
+        tradeHistory.push({ type: 'win', balanceBefore, amount, balanceAfter: currentBalance, screenshot: null, screenshotNote: null, note: '', timestamp: new Date().toISOString() });
+        showToast('Win recorded');
+      } else {
+        amount = currentBalance * (riskPercent / 100);
+        currentBalance -= amount; losses++;
+        tradeHistory.push({ type: 'loss', balanceBefore, amount, balanceAfter: currentBalance, screenshot: null, screenshotNote: null, note: '', timestamp: new Date().toISOString() });
+        showToast('Loss recorded');
+      }
+      tradeCount++;
+      
+      // Update current system data
+      tradingSystems[currentSystem] = {
+        ...tradingSystems[currentSystem],
+        currentBalance,
+        wins,
+        losses,
+        tradeCount,
+        tradeHistory
+      };
+      
+      updateDisplay();
+      updateTradeHistory();
+      updateProgressTable();
+      saveToStorage();
+    }
+
+    function showResetConfirmation() { openModal('resetModal'); }
+
+    function resetTrading() {
+      startingBalance = parseFloat(document.getElementById('startingBalance').value);
+      currentBalance = startingBalance;
+      wins = 0; losses = 0; tradeCount = 0; tradeHistory = [];
+      
+      // Update current system data
+      tradingSystems[currentSystem] = {
+        ...tradingSystems[currentSystem],
+        startingBalance,
+        currentBalance,
+        wins,
+        losses,
+        tradeCount,
+        tradeHistory
+      };
+      
+      updateDisplay(); updateTradeHistory(); updateProgressTable();
+      closeModal('resetModal'); saveToStorage(); showToast('Trading data reset');
+    }
+
+    // ====== Chart ======
+    function getThemeColor(token) { return getComputedStyle(document.documentElement).getPropertyValue(token).trim(); }
+
+    function updateBalanceChart() {
+      const ctx = document.getElementById('balanceChart')?.getContext('2d');
+      if (!ctx) return;
+      const labels = tradeHistory.length > 0 ? tradeHistory.map(t => new Date(t.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })) : ['Start'];
+      const data = tradeHistory.length > 0 ? tradeHistory.map(t => t.balanceAfter) : [startingBalance];
+      if (balanceChart) balanceChart.destroy();
+      const grad = ctx.createLinearGradient(0, 0, 0, 300);
+      grad.addColorStop(0, getThemeColor('--chart-background'));
+      grad.addColorStop(1, 'transparent');
+      balanceChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{
+          label: 'Balance ($)', data,
+          borderColor: getThemeColor('--primary-color'),
+          backgroundColor: grad, fill: true, tension: 0.35,
+          pointBackgroundColor: tradeHistory.map(t => t.type === 'win' ? getThemeColor('--success-color') : getThemeColor('--danger-color')),
+          pointBorderColor: getThemeColor('--background-color'), pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 7
+        }]},
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { labels: { color: getThemeColor('--text-primary'), font: { size: 13 } } },
+            tooltip: {
+              backgroundColor: getThemeColor('--surface'),
+              titleColor: getThemeColor('--text-primary'), bodyColor: getThemeColor('--text-primary'),
+              callbacks: { label: (ctx) => `Balance: $${ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` }
+            },
+            zoom: {
+              pan: { enabled: true, mode: 'x' },
+              zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Date', color: getThemeColor('--text-primary') }, ticks: { color: getThemeColor('--text-primary') }, grid: { color: getThemeColor('--accent-color') } },
+            y: { title: { display: true, text: 'Balance ($)', color: getThemeColor('--text-primary') }, ticks: { color: getThemeColor('--text-primary'), callback: (v) => `$${v.toLocaleString('en-US', { minimumFractionDigits: 0 })}` }, grid: { color: getThemeColor('--accent-color') } }
+          },
+          animation: { duration: 900, easing: 'easeInOutQuad' }
+        }
+      });
+    }
+
+    // ====== History list + Filters ======
+    function applyFilters() { updateTradeHistory(); }
+    function clearFilters() {
+      document.getElementById('filterType').value = 'all';
+      document.getElementById('filterFrom').value = '';
+      document.getElementById('filterTo').value = '';
+      updateTradeHistory();
+    }
+
+    function filteredTrades() {
+      const type = document.getElementById('filterType')?.value || 'all';
+      const from = document.getElementById('filterFrom')?.value;
+      const to = document.getElementById('filterTo')?.value;
+      return tradeHistory.filter(tr => {
+        if (type !== 'all' && tr.type !== type) return false;
+        const d = new Date(tr.timestamp);
+        if (from && d < new Date(from)) return false;
+        if (to) {
+          const tdate = new Date(to); tdate.setHours(23,59,59,999);
+          if (d > tdate) return false;
+        }
+        return true;
+      });
+    }
+
+    function updateTradeHistory() {
+      updateBalanceChart();
+      const historyContainer = document.getElementById('tradeHistory');
+      if (!historyContainer) return;
+      historyContainer.innerHTML = '';
+      const list = filteredTrades();
+      if (list.length === 0) {
+        historyContainer.innerHTML = '<p class="text-center p-6 text-[var(--text-secondary)]">No trades to display</p>';
+      } else {
+        // Summary
+        const total = list.length;
+        const w = list.filter(t => t.type === 'win');
+        const l = list.filter(t => t.type === 'loss');
+        const gp = w.reduce((s,t)=>s+t.amount,0), gl = l.reduce((s,t)=>s+t.amount,0);
+        document.getElementById('sumTotal').textContent = total;
+        document.getElementById('sumWins').textContent = w.length;
+        document.getElementById('sumLosses').textContent = l.length;
+        document.getElementById('sumPnL').textContent = `$${(gp - gl).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+        for (let i = list.length - 1; i >= 0; i--) {
+          const trade = list[i];
+          const idx = tradeHistory.indexOf(trade);
+          const row = document.createElement('div');
+          row.className = `flex justify-between items-center p-4 border-b border-[var(--accent-color)] hover:bg-[var(--accent-color)] transition ${trade.type === 'win' ? 'text-[var(--success-color)]' : 'text-[var(--danger-color)]'}`;
+          const dt = new Date(trade.timestamp);
+          const fd = dt.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+          const ft = dt.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+
+          row.innerHTML = `
+            <span class="text-sm">#${idx + 1}: ${trade.type.toUpperCase()} (${fd}, ${ft})</span>
+            <span class="text-sm font-medium">${trade.type === 'win' ? '+' : '-'}$${trade.amount.toFixed(2)}</span>
+            <span class="text-sm font-medium">$${trade.balanceAfter.toFixed(2)}</span>
+            <button class="text-[var(--danger-color)] hover:text-[var(--danger-color)]/70" onclick="removeTrade(${idx})">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 000-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 7a1 1 0 001 1h1v7a1 1 0 102 0V8h1a1 1 0 100-2h2a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7a1 1 0 001-1h2a1 1 0 001 1z" clip-rule="evenodd"></path></svg>
+            </button>
+          `;
+          historyContainer.appendChild(row);
+        }
+      }
+    }
+
+    // ====== Journal table ======
+    function updateProgressTable() {
+      const body = document.querySelector('#progressTable tbody');
+      if (!body) return;
+      body.innerHTML = '';
+      if (tradeHistory.length === 0) return;
+      const cur = tradeHistory[tradeHistory.length - 1];
+      const pct = ((cur.balanceAfter - startingBalance) / (targetBalance - startingBalance) * 100).toFixed(2);
+      const statusRow = document.createElement('tr');
+      statusRow.className = 'font-semibold bg-[var(--accent-color)]';
+      statusRow.innerHTML = `<td class="p-4" colspan="4">CURRENT</td><td class="p-4">$${cur.balanceAfter.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td><td class="p-4">Progress: ${pct}%</td><td class="p-4">Target: $${targetBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>`;
+      body.appendChild(statusRow);
+
+      for (let i = tradeHistory.length - 1; i >= 0; i--) {
+        const t = tradeHistory[i];
+        const n = i + 1;
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-[var(--accent-color)] transition';
+        const d = new Date(t.timestamp);
+        const fd = d.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        const ft = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+
+        // Screenshot cell
+        let shot = t.screenshot ? `
+          <div class="flex flex-col items-center gap-2">
+            <img src="${t.screenshot}" alt="Trade screenshot ${n}" class="max-w-[120px] max-h-[80px] rounded-md border-2 border-[var(--primary-color)]/50 cursor-pointer" onclick="showScreenshotModal(${i})" loading="lazy">
+            <button class="px-3 py-1 rounded-full text-xs bg-[var(--danger-color)]/20 text-[var(--danger-color)] hover:bg-[var(--danger-color)]/30" onclick="removeTradeScreenshot(${i})">Remove</button>
+          </div>` : `
+          <div class="flex flex-col items-center gap-2">
+            <span class="text-[var(--text-secondary)] text-xs">No screenshot</span>
+            <input type="file" id="tradeScreenshotInput-${i}" class="hidden" accept="image/*" onchange="handleTradeScreenshot(${i}, this)">
+            <button class="btn-primary px-3 py-1 rounded-full text-xs" onclick="document.getElementById('tradeScreenshotInput-${i}').click()">Upload</button>
+          </div>`;
+
+        // Rich text note cell (contenteditable)
+        const noteHTML = t.note || '';
+        const note = `
+          <div class="space-y-2">
+            <div class="flex gap-2 items-center">
+              <button class="rt-btn" onclick="rtCmd('bold', ${i})" type="button"><b>B</b></button>
+              <button class="rt-btn" onclick="rtCmd('italic', ${i})" type="button"><i>I</i></button>
+              <button class="rt-btn" onclick="rtCmd('insertUnorderedList', ${i})" type="button">• List</button>
+              <button class="rt-btn ml-auto" onclick="saveTradeNote(${i})" id="tradeNoteButton-${i}" type="button">Save</button>
+            </div>
+            <div id="tradeNote-${i}" class="min-h-[80px] p-3 rounded-md border border-[var(--accent-color)] bg-[var(--surface)]" contenteditable="true">${noteHTML}</div>
+          </div>`;
+
+        row.innerHTML = `
+          <td class="p-4 text-sm">${n}<br><small class="text-[var(--text-secondary)]">${fd}, ${ft}</small></td>
+          <td class="p-4 text-sm ${t.type === 'win' ? 'text-[var(--success-color)]' : 'text-[var(--danger-color)]'}">${t.type.toUpperCase()}</td>
+          <td class="p-4 text-sm">$${t.balanceBefore.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+          <td class="p-4 text-sm">${t.type === 'win' ? `+${rewardPercent}%` : `-${riskPercent}%`} ($${t.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })})</td>
+          <td class="p-4 text-sm">$${t.balanceAfter.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+          <td class="p-4">${shot}</td>
+          <td class="p-4">${note}</td>`;
+        body.appendChild(row);
+      }
+    }
+
+    function rtCmd(cmd, idx) {
+      // Focus the note before exec
+      const el = document.getElementById(`tradeNote-${idx}`);
+      if (!el) return; el.focus();
+      document.execCommand(cmd, false, null);
+    }
+
+    function handleTradeScreenshot(tradeIndex, input) {
+      if (input.files.length === 0) return;
+      const file = input.files[0];
+      if (file.size > 5 * 1024 * 1024) { showToast('File must be < 5MB', 'error'); input.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        tradeHistory[tradeIndex].screenshot = e.target.result;
+        tradeHistory[tradeIndex].screenshotNote = null;
+        updateProgressTable(); saveToStorage(); input.value=''; showToast('Screenshot uploaded');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveTradeNote(tradeIndex) {
+      const div = document.getElementById(`tradeNote-${tradeIndex}`);
+      if (!div) return;
+      tradeHistory[tradeIndex].note = div.innerHTML;
+      saveToStorage();
+      showToast('Note saved');
+    }
+
+    function removeTradeScreenshot(tradeIndex) {
+      tradeHistory[tradeIndex].screenshot = null;
+      tradeHistory[tradeIndex].screenshotNote = null;
+      updateProgressTable(); saveToStorage(); showToast('Screenshot removed');
+    }
+
+    function showScreenshotModal(tradeIndex) {
+      const trade = tradeHistory[tradeIndex];
+      document.getElementById('modalScreenshot').src = trade.screenshot || '';
+      document.getElementById('modalTradeNote').innerHTML = trade.note || 'No trade note available';
+      openModal('screenshotModal');
+    }
+
+    // ====== Export/Import ======
+    function exportData() {
+      const data = { 
+        currentBalance, 
+        startingBalance, 
+        wins, 
+        losses, 
+        tradeCount, 
+        tradeHistory, 
+        targetBalance, 
+        riskPercent, 
+        rewardPercent, 
+        exportDate: new Date().toISOString(),
+        tradingSystems,
+        currentSystem
+      };
+      const dataStr = JSON.stringify(data, null, 2);
+      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+      const name = `trading-data-${new Date().toISOString().slice(0,10)}.json`;
+      const a = document.createElement('a'); a.href = dataUri; a.download = name; a.click();
+      showToast('Data exported');
+    }
+
+    function importData() { 
+      const fi = document.getElementById('importFile'); if (fi) fi.value = '';
+      const ta = document.getElementById('importDataText'); if (ta) ta.value = '';
+      openModal('importModal'); 
+    }
+
+    function processImport() {
+      const fileInput = document.getElementById('importFile');
+      const txt = document.getElementById('importDataText').value;
+
+      if (fileInput && fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const d = JSON.parse(e.target.result);
+            loadImportedData(d);
+            fileInput.value = '';
+          } catch (err) {
+            showToast('Error: Invalid JSON file', 'error');
+            console.error(err);
+          }
+        };
+        reader.readAsText(file);
+        return;
+      }
+
+      if (txt && txt.trim().length > 0) {
+        try {
+          const d = JSON.parse(txt);
+            loadImportedData(d);
+            document.getElementById('importDataText').value = '';
+        } catch (err) {
+          showToast('Error: Invalid pasted data', 'error');
+          console.error(err);
+        }
+        return;
+      }
+
+      showToast('Please select a file or paste data', 'error');
+    }
+
+    function loadImportedData(d) {
+      if (!d || !Array.isArray(d.tradeHistory) || typeof d.currentBalance === 'undefined') {
+        showToast('Error importing: Missing required fields', 'error');
+        return;
+      }
+      try {
+        currentBalance = d.currentBalance;
+        startingBalance = d.startingBalance ?? 10000;
+        wins = d.wins ?? 0;
+        losses = d.losses ?? 0;
+        tradeCount = d.tradeCount ?? 0;
+        tradeHistory = d.tradeHistory ?? [];
+        targetBalance = d.targetBalance ?? 10800;
+        riskPercent = d.riskPercent ?? 1;
+        rewardPercent = d.rewardPercent ?? 2;
+
+        // Import trading systems if available
+        if (d.tradingSystems) {
+          tradingSystems = d.tradingSystems;
+          currentSystem = d.currentSystem || 'default';
+        }
+
+        document.getElementById('startingBalance').value = startingBalance;
+        document.getElementById('targetBalance').value = targetBalance;
+        document.getElementById('riskPercent').value = riskPercent;
+        document.getElementById('rewardPercent').value = rewardPercent;
+        document.getElementById('tradeControls').style.display = 'flex';
+
+        // Update system dropdown
+        updateSystemDropdown();
+
+        updateDisplay();
+        updateTradeHistory();
+        updateProgressTable();
+        saveToStorage();
+        closeModal('importModal');
+        showToast('Data imported successfully');
+      } catch (err) {
+        showToast('Error processing imported data', 'error');
+        console.error(err);
+      }
+    }
+
+    // ====== System Management Functions ======
+    function updateSystemDropdown() {
+      const systemSelect = document.getElementById('systemSelect');
+      systemSelect.innerHTML = '';
+      
+      for (const [key, system] of Object.entries(tradingSystems)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = system.name;
+        if (key === currentSystem) {
+          option.selected = true;
+        }
+        systemSelect.appendChild(option);
+      }
+    }
+
+    function showSystemModal() {
+      document.getElementById('systemModal').classList.add('open');
+      updateSystemList();
+    }
+
+    function addSystem() {
+      const systemName = document.getElementById('systemName').value.trim();
+      if (!systemName) {
+        showToast('Please enter a system name', 'error');
+        return;
+      }
+      
+      if (tradingSystems[systemName]) {
+        showToast('A system with this name already exists', 'error');
+        return;
+      }
+      
+      // Create new system with default values
+      tradingSystems[systemName] = {
+        name: systemName,
+        startingBalance: 10000,
+        currentBalance: 10000,
+        targetBalance: 10800,
+        riskPercent: 1,
+        rewardPercent: 2,
+        wins: 0,
+        losses: 0,
+        tradeCount: 0,
+        tradeHistory: []
+      };
+      
+      // Update dropdown
+      updateSystemDropdown();
+      
+      // Clear input
+      document.getElementById('systemName').value = '';
+      
+      showToast(`System "${systemName}" added successfully`, 'success');
+      updateSystemList();
+      saveToStorage();
+    }
+
+    function switchSystem(systemName) {
+      if (!tradingSystems[systemName]) return;
+      
+      currentSystem = systemName;
+      const system = tradingSystems[systemName];
+      
+      // Update UI with system data
+      startingBalance = system.startingBalance;
+      currentBalance = system.currentBalance;
+      targetBalance = system.targetBalance;
+      riskPercent = system.riskPercent;
+      rewardPercent = system.rewardPercent;
+      wins = system.wins;
+      losses = system.losses;
+      tradeCount = system.tradeCount;
+      tradeHistory = system.tradeHistory;
+      
+      // Update form fields
+      document.getElementById('startingBalance').value = startingBalance;
+      document.getElementById('targetBalance').value = targetBalance;
+      document.getElementById('riskPercent').value = riskPercent;
+      document.getElementById('rewardPercent').value = rewardPercent;
+      
+      // Update UI
+      updateDisplay();
+      updateTradeHistory();
+      updateProgressTable();
+      saveToStorage();
+      
+      showToast(`Switched to "${system.name}" system`, 'success');
+    }
+
+    function updateSystemList() {
+      const systemList = document.getElementById('systemList');
+      systemList.innerHTML = '';
+      
+      for (const [key, system] of Object.entries(tradingSystems)) {
+        if (key === 'default') continue;
+        
+        const div = document.createElement('div');
+        div.className = 'flex justify-between items-center p-3 bg-[var(--surface)] rounded-lg';
+        div.innerHTML = `
+          <span>${system.name}</span>
+          <div class="flex gap-2">
+            <button onclick="deleteSystem('${key}')" class="text-red-500 hover:text-red-400">Delete</button>
+          </div>
+        `;
+        systemList.appendChild(div);
+      }
+    }
+
+    function deleteSystem(systemName) {
+      if (systemName === 'default') {
+        showToast('Cannot delete the default system', 'error');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to delete the "${systemName}" system?`)) {
+        delete tradingSystems[systemName];
+        
+        // If we're currently using this system, switch to default
+        if (currentSystem === systemName) {
+          switchSystem('default');
+        }
+        
+        // Update dropdown
+        updateSystemDropdown();
+        updateSystemList();
+        saveToStorage();
+        showToast(`System "${systemName}" deleted`, 'success');
+      }
+    }
+
+    // ====== Tabs ======
+    function showTab(tabId) {
+      // hide all
+      document.querySelectorAll('.tab-content').forEach(t => { t.classList.add('hidden'); t.classList.remove('block'); });
+      // show target
+      const tab = document.getElementById(tabId); if (tab) { tab.classList.remove('hidden'); tab.classList.add('block'); }
+      // update nav active across whole page
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      // set the nav items with matching onclick active (covers both desktop & mobile)
+      Array.from(document.querySelectorAll('.nav-item')).forEach(btn => {
+        const onclick = btn.getAttribute('onclick') || btn.getAttribute('data-onclick');
+        if (onclick && onclick.includes(`'${tabId}'`)) btn.classList.add('active');
+      });
+      // if switching to trade history, refresh chart
+      if (tabId === 'tradeHistoryTab') updateBalanceChart();
+      // close mobile nav if open
+      const mobileNav = document.getElementById('mobileNav');
+      const mobileBtn = document.getElementById('mobileMenuBtn');
+      if (mobileNav && !mobileNav.classList.contains('hidden')) {
+        mobileNav.classList.add('hidden');
+        if (mobileBtn) mobileBtn.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    // ====== Report ======
+    function generateReport() {
+      const monthInput = document.getElementById('reportCalendar').value;
+      if (!monthInput) { document.getElementById('reportResult').innerHTML = '<p class="text-[var(--text-secondary)]">Please select a month.</p>'; showToast('Please select a month', 'error'); return; }
+      const [year, month] = monthInput.split('-');
+      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+      const trades = tradeHistory.filter(t => { const d = new Date(t.timestamp); return d.getFullYear() === +year && (d.getMonth() + 1) === +month; });
+      let sl = 0, tp = 0, prof = 0, loss = 0;
+      trades.forEach(t => { if (t.type === 'loss') { sl++; loss += t.amount; } else { tp++; prof += t.amount; } });
+      const winRate = trades.length ? ((tp / trades.length) * 100).toFixed(2) : 0;
+      const net = prof - loss;
+      document.getElementById('reportResult').innerHTML = `
+        <h4 class="text-lg font-semibold mb-3">${monthName} ${year} Report</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-xl mx-auto">
+          <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Total SL (Losses)</div><div class="text-xl font-semibold">${sl}</div></div>
+          <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Total TP (Wins)</div><div class="text-xl font-semibold">${tp}</div></div>
+          <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Win Rate</div><div class="text-xl font-semibold">${winRate}%</div></div>
+          <div class="card p-4"><div class="text-xs text-[var(--text-secondary)]">Net Profit/Loss</div><div class="text-xl font-semibold">$${net.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div></div>
+        </div>`;
+
+      // Charts
+      const pieCtx = document.getElementById('reportPie').getContext('2d');
+      if (reportPie) reportPie.destroy();
+      reportPie = new Chart(pieCtx, { type: 'pie', data: { labels:['Wins','Losses'], datasets:[{ data:[tp, sl] }] }, options: { plugins:{ legend:{ labels:{ color:getThemeColor('--text-primary') } } } } });
+
+      const barCtx = document.getElementById('reportBar').getContext('2d');
+      if (reportBar) reportBar.destroy();
+      reportBar = new Chart(barCtx, { type: 'bar', data: { labels:['Profit','Loss','Net'], datasets:[{ data:[prof, loss, net] }] }, options: { plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ color:getThemeColor('--text-primary') } }, y:{ ticks:{ color:getThemeColor('--text-primary') } } } } });
+      showToast('Report generated');
+    }
+
+    function downloadPDF() {
+      const monthInput = document.getElementById('reportCalendar').value;
+      if (!monthInput) { showToast('Select a month first', 'error'); return; }
+      const [year, month] = monthInput.split('-');
+      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+      const trades = tradeHistory.filter(t => { const d = new Date(t.timestamp); return d.getFullYear() === +year && (d.getMonth() + 1) === +month; });
+      let sl = 0, tp = 0, prof = 0, loss = 0;
+      trades.forEach(t => { if (t.type === 'loss') { sl++; loss += t.amount; } if (t.type === 'win') { tp++; prof += t.amount; } });
+      const latex = `\\documentclass[a4paper,12pt]{article}\n\\usepackage[utf8]{inputenc}\n\\usepackage{geometry}\n\\geometry{a4paper, margin=1in}\n\\usepackage{booktabs}\n\\begin{document}\n\\section*{Monthly Trading Report}\\textbf{Month:} ${monthName} ${year}\\\\\\n\\begin{tabular}{lr}\\toprule\\textbf{Metric} & \\textbf{Value} \\\\ \\midrule\\ Total SL (Losses) & ${sl} \\\\ Total TP (Wins) & ${tp} \\\\ Win Rate & ${(trades.length?((tp/trades.length)*100).toFixed(2):0)}\\% \\\\ Net Profit/Loss & \\$${(prof - loss).toLocaleString('en-US', { minimumFractionDigits: 2 })} \\\\ \\bottomrule\\end{tabular}\\end{document}`;
+      const blob = new Blob([latex], { type: 'text/latex' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `trading-report-${monthName}-${year}.tex`; a.click(); URL.revokeObjectURL(url);
+      showToast('PDF report downloaded as .tex');
+    }
+
+    function downloadXLSX() {
+      const monthInput = document.getElementById('reportCalendar').value;
+      if (!monthInput) { showToast('Select a month first', 'error'); return; }
+      const [year, month] = monthInput.split('-');
+      const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+      const trades = tradeHistory.filter(t => { const d = new Date(t.timestamp); return d.getFullYear() === +year && (d.getMonth() + 1) === +month; });
+      let sl = 0, tp = 0, prof = 0, loss = 0;
+      trades.forEach(t => { if (t.type === 'loss') { sl++; loss += t.amount; } if (t.type === 'win') { tp++; prof += t.amount; } });
+      if (typeof XLSX === 'undefined') { showToast('XLSX library not loaded', 'error'); return; }
+      const data = [ ['Metric','Value'], ['Total SL (Losses)', sl], ['Total TP (Wins)', tp], ['Win Rate', `${trades.length ? ((tp/trades.length)*100).toFixed(2) : 0}%`], ['Net Profit/Loss', `$${(prof - loss).toLocaleString('en-US', { minimumFractionDigits: 2 })}`] ];
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Report');
+      XLSX.writeFile(wb, `trading-report-${monthName}-${year}.xlsx`);
+      showToast('XLSX downloaded');
+    }
+
+    // ====== Trade Removal ======
+    function removeTrade(indexToRemove) {
+      if (confirm('Are you sure you want to remove this trade? This action cannot be undone.')) {
+        tradeHistory.splice(indexToRemove, 1);
+        // Recalculate totals and update display
+        wins = tradeHistory.filter(t => t.type === 'win').length;
+        losses = tradeHistory.filter(t => t.type === 'loss').length;
+        tradeCount = tradeHistory.length;
+        currentBalance = startingBalance; // Reset to starting balance and re-apply trades
+        tradeHistory.forEach(trade => {
+          if (trade.type === 'win') {
+            currentBalance += trade.amount;
+          } else {
+            currentBalance -= trade.amount;
+          }
+        });
+        
+        // Update current system data
+        tradingSystems[currentSystem] = {
+          ...tradingSystems[currentSystem],
+          currentBalance,
+          wins,
+          losses,
+          tradeCount,
+          tradeHistory
+        };
+        
+        updateDisplay();
+        updateTradeHistory();
+        updateProgressTable();
+        saveToStorage();
+        showToast('Trade removed successfully');
+      }
+    }
+
+    // ====== On Load ======
+    window.addEventListener('load', () => {
+      window.addEventListener('scroll', updateHeaderShadow);
+      const savedTheme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.getElementById('themeLabel').textContent = savedTheme === 'dark' ? 'Dark Mode' : 'Light Mode';
+      const sunIcon = document.getElementById('sunIcon'); const moonIcon = document.getElementById('moonIcon');
+      if (savedTheme === 'light') { sunIcon.classList.add('hidden'); moonIcon.classList.remove('hidden'); } else { sunIcon.classList.remove('hidden'); moonIcon.classList.add('hidden'); }
+      document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+      const hasData = loadFromStorage();
+      if (hasData) {
+        document.getElementById('tradeControls').style.display = 'flex';
+        updateDisplay();
+        updateTradeHistory();
+        updateProgressTable();
+        updateSystemDropdown();
+      } else {
+        initTrading(); // Initialize with default values if no data is saved
+      }
+
+      const now = new Date();
+      document.getElementById('reportCalendar').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+      // Set initial active tab to Dashboard
+      showTab('trackerTab');
+    });
+  </script>
+</body>
+</html>
